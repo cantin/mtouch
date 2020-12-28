@@ -75,24 +75,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
     func applicationDidFinishLaunching(_ notification: Notification) {
         func myCGEventCallback(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent, refcon: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
 
+            // ignore mouseup if has multiple touches
             if (type == CGEventType.leftMouseUp) {
-                debugPrint((NSEvent(cgEvent:event)!))
-                //var multipleTouches = false
-                //if (lastTouchEvent != nil) {
-                    //let touches = lastTouchEvent!.allTouches()
-                    //debugPrint(touches)
-                    //if (touches.count > 1) {
-                        //multipleTouches = true
-                    //}
-                //}
-                //debugPrint(multipleTouches)
-                //debugPrint(event.type.rawValue)
-                //if multipleTouches {
-                    ////event.type = CGEventType.null
-                    //return nil
-                //}
-                //debugPrint(event.type.rawValue)
-                //return Unmanaged.passRetained(event)
+                //debugPrint((NSEvent(cgEvent:event)!))
+                if (touchHash.count > 1) {
+                    return nil
+                }
             }
 
             var touchModified = false
@@ -100,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                 //lastTouchEvent = NSEvent(cgEvent: event)!
                 let s = NSEvent(cgEvent: event)
                 let touches = s!.allTouches()
-                debugPrint(touches)
+                //debugPrint(touches)
 
                 for case let touch in touches {
                     //debugPrint(touch.normalizedPosition)
@@ -137,7 +125,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
 
                             var multipleTouchesClick = false
                             let touchesClick = stationaryTouches.filter { key, touch in
-                                return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= clickThreshold
+                                return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= 0.05
                             }
                             if (touchesClick.count == stationaryTouches.count) {
                                 //double click touch means right mouse click
