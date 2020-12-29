@@ -16,6 +16,7 @@ let app = NSApplication.shared
 var touchHash = [Int:NSTouch]()
 var touchesTimestamp = [Int:Date]()
 let clickThreshold = 0.15 //150ms
+var hasTouchEffect = false
 
 func keyboardKeyDown(key: CGKeyCode) {
     let source = CGEventSource(stateID: CGEventSourceStateID.hidSystemState)
@@ -104,6 +105,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
             if (type == CGEventType.leftMouseUp) {
                 //debugPrint((NSEvent(cgEvent:event)!))
                 if (touchHash.count > 1) {
+                    // true means multiple touches on trackpad, we can use it on the first touch end event later.
+                    hasTouchEffect = true
                     return nil
                 }
             }
@@ -114,14 +117,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                 //debugPrint(touches)
 
                 for case let touch in touches {
-                    //debugPrint(touch.normalizedPosition)
+                    // the first touch end event occurs right after mouseUp event
+                    // So we check the touchEffect here and set it back to false
+                    var touchEffect = false
+                    if (touch.phase == .ended || touch.phase == .cancelled) {
+                        touchEffect = hasTouchEffect
+                        hasTouchEffect = false
+                    }
+
                     if (touch.type == .direct) {
                         continue  //touch from the touch bar
                     }
 
-
                     if (touchHash[touch.identity.hash] != nil) {
-                        let beganTime = touchesTimestamp[touch.identity.hash]
+                        //let beganTime = touchesTimestamp[touch.identity.hash]
 
                         if (touch.phase == .ended || touch.phase == .cancelled) {
                             touchHash.removeValue(forKey: touch.identity.hash)
@@ -136,19 +145,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                                 return t.normalizedPosition.x < touch.normalizedPosition.x
                             }
 
-                            var multipleTouchesClick = false
-                            let touchesClick = stationaryTouches.filter { key, touch in
-                                return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= 0.2
-                            }
-                            if (touchesClick.count == stationaryTouches.count) {
-                                //multipe touches click means right mouse click or three finger click
-                                multipleTouchesClick = true
-                            } else {
-                            }
+                            //var multipleTouchesClick = false
+                            //let touchesClick = stationaryTouches.filter { key, touch in
+                                //return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= 0.2
+                            //}
+                            //if (touchesClick.count == stationaryTouches.count) {
+                                ////multipe touches click means right mouse click or three finger click
+                                //multipleTouchesClick = true
+                            //} else {
+                            //}
 
                             // do nothing when release the not clicking touch
-                            if (multipleTouchesClick || (beganTime != nil && abs((beganTime?.timeIntervalSinceNow)!) > clickThreshold)) {
-                            } else {
+                            //if (multipleTouchesClick || (beganTime != nil && abs((beganTime?.timeIntervalSinceNow)!) > clickThreshold)) {
+                            //} else {
+                            if (touchEffect) {
                                 if stationaryTouches.count == 2 {
                                     switch leftStationaryTouches.count {
                                     case 0:
