@@ -9,13 +9,13 @@ import Foundation
 import AppKit
 import CoreGraphics
 import CoreFoundation
+import Carbon.HIToolbox
 
 
 let app = NSApplication.shared
 var touchHash = [Int:NSTouch]()
 var touchesTimestamp = [Int:Date]()
 let clickThreshold = 0.15 //150ms
-var lastTouchEvent: NSEvent?
 
 func keyboardKeyDown(key: CGKeyCode) {
     let source = CGEventSource(stateID: CGEventSourceStateID.hidSystemState)
@@ -51,6 +51,31 @@ func cmdPress(key: CGKeyCode) {
     cmd_shift_up?.post(tap: CGEventTapLocation.cghidEventTap);
 }
 
+func cmdClick(event: CGEvent) {
+    let cmd_down = CGEvent(keyboardEventSource: nil, virtualKey: 0x37, keyDown: true);
+    cmd_down?.flags = CGEventFlags(rawValue: (CGEventFlags.maskCommand.rawValue))
+    cmd_down?.post(tap: CGEventTapLocation.cgSessionEventTap);
+
+    let mouseDown = CGEvent(mouseEventSource: nil,
+                        mouseType: .leftMouseDown,
+                        mouseCursorPosition: event.location,
+                        mouseButton: .left
+                        )
+    mouseDown?.post(tap: .cgSessionEventTap)
+
+
+    let mouseUp = CGEvent(mouseEventSource: nil,
+            mouseType: .leftMouseUp,
+            mouseCursorPosition: event.location,
+            mouseButton: .left
+            )
+    mouseUp?.post(tap: .cgSessionEventTap)
+
+    let cmd_up = CGEvent(keyboardEventSource: nil, virtualKey: 0x37, keyDown: false);
+    cmd_up?.flags = CGEventFlags(rawValue: (CGEventFlags.maskCommand.rawValue))
+    cmd_up?.post(tap: CGEventTapLocation.cgSessionEventTap);
+}
+
 
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate {
@@ -83,9 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                 }
             }
 
-            var touchModified = false
             if (type.rawValue == 29) {
-                //lastTouchEvent = NSEvent(cgEvent: event)!
                 let s = NSEvent(cgEvent: event)
                 let touches = s!.allTouches()
                 //debugPrint(touches)
@@ -103,17 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                         if (touch.phase == .ended || touch.phase == .cancelled) {
                             touchHash.removeValue(forKey: touch.identity.hash)
                             touchesTimestamp.removeValue(forKey: touch.identity.hash)
-                            if (touchHash.count == 0) {
-                                //lastTouchEvent = nil
-                            }
-                        } else {
-                            /*if (touch.phase == .moved) {*/
-                            /*if (abs(touch.normalizedPosition.y - (t?.normalizedPosition.y)!) > 0.005 || abs(touch.normalizedPosition.x - (t?.normalizedPosition.x)!) > 0.005) {*/
-                            /*touchHash.removeValue(forKey: touch.identity.hash)*/
-                            /*}*/
-                            /*}*/
                         }
-
 
                         if (touch.phase == .ended) {
                             let stationaryTouches = touchHash.filter { key, touch in
@@ -125,11 +138,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
 
                             var multipleTouchesClick = false
                             let touchesClick = stationaryTouches.filter { key, touch in
-                                return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= 0.05
+                                return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= 0.2
                             }
                             if (touchesClick.count == stationaryTouches.count) {
-                                //double click touch means right mouse click
+                                //multipe touches click means right mouse click or three finger click
                                 multipleTouchesClick = true
+                            } else {
                             }
 
                             // do nothing when release the not clicking touch
@@ -138,12 +152,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                                 if stationaryTouches.count == 2 {
                                     switch leftStationaryTouches.count {
                                     case 0:
-                                        //right click
+                                        //left click
                                         debugPrint("left")
+                                        cmdClick(event: event)
                                     case 1:
                                         debugPrint("Middle")
                                         cmdPress(key: 0x0D) //press cmd + w
-                                        touchModified = true
                                     case 2:
                                         debugPrint("right")
                                     default: break
@@ -154,11 +168,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                                         if leftStationaryTouches.count == 1 {
                                             debugPrint("press }")
                                             cmdShiftPress(key: 0x1e) //press cmd + }
-                                            touchModified = true
                                         } else {
                                             debugPrint("press {")
                                             cmdShiftPress(key: 0x21) //press cmd  + {
-                                            touchModified = true
                                         }
                                     }
                                 }
@@ -178,9 +190,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                 }
             }
 
-            if touchModified {
-                debugPrint("")
-            }
             return Unmanaged.passRetained(event)
         }
 
@@ -201,7 +210,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
         //let eventMask =  4294967295 // kCGEventMaskForAllEvents, copied from Obj-C header file
         //let eventMask = 1 << 29 // NSEventTypeGesture is 29, copied from Obj-C header file
         let eventMask = (1 << 29) | (1 << CGEventType.leftMouseUp.rawValue)
-        guard let eventTap = CGEvent.tapCreate(tap: .cgSessionEventTap,
+        guard let eventTap = CGEvent.tapCreate(tap: .cghidEventTap,
                                                place: .headInsertEventTap,
                                                options: .defaultTap,
                                                eventsOfInterest: CGEventMask(eventMask),
