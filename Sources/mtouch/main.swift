@@ -14,7 +14,6 @@ import Carbon.HIToolbox
 
 let app = NSApplication.shared
 var touchHash = [Int:NSTouch]()
-var touchesTimestamp = [Int:Date]()
 let clickThreshold = 0.15 //150ms
 var hasTouchEffect = false
 
@@ -130,30 +129,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                     }
 
                     if (touchHash[touch.identity.hash] != nil) {
-                        //let beganTime = touchesTimestamp[touch.identity.hash]
-
                         if (touch.phase == .ended || touch.phase == .cancelled) {
                             touchHash.removeValue(forKey: touch.identity.hash)
-                            touchesTimestamp.removeValue(forKey: touch.identity.hash)
                         }
 
                         if (touch.phase == .ended) {
-                            let stationaryTouches = touchHash.filter { key, touch in
-                                return touch.phase == .stationary
+                            let stationaryTouches = touches.filter { touch in
+                                switch touch.phase {
+                                    case .stationary:
+                                        return true
+                                    case .moved:
+                                         let beganTouch = (touchHash[touch.identity.hash])!
+                                         return abs(beganTouch.normalizedPosition.x - touch.normalizedPosition.x) < 0.05 && abs(beganTouch.normalizedPosition.y - touch.normalizedPosition.y) < 0.05
+                                    default:
+                                    return false
+                                }
                             }
-                            let leftStationaryTouches = stationaryTouches.filter { key, t in
+                            let leftStationaryTouches = stationaryTouches.filter { t in
                                 return t.normalizedPosition.x < touch.normalizedPosition.x
                             }
-
-                            //var multipleTouchesClick = false
-                            //let touchesClick = stationaryTouches.filter { key, touch in
-                                //return abs((touchesTimestamp[touch.identity.hash]?.timeIntervalSinceNow)!) <= 0.2
-                            //}
-                            //if (touchesClick.count == stationaryTouches.count) {
-                                ////multipe touches click means right mouse click or three finger click
-                                //multipleTouchesClick = true
-                            //} else {
-                            //}
 
                             // do nothing when release the not clicking touch
                             //if (multipleTouchesClick || (beganTime != nil && abs((beganTime?.timeIntervalSinceNow)!) > clickThreshold)) {
@@ -188,10 +182,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSGestureRecognizerDelegate 
                         }
                     }
 
-                    if touch.phase == .began || touchHash[touch.identity.hash] != nil {
-                        if (touch.phase == .began) {
-                            touchesTimestamp[touch.identity.hash] = Date()
-                        }
+                    if touch.phase == .began {
                         touchHash[touch.identity.hash] = touch
                     }
 
