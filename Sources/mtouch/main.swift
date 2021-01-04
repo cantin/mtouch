@@ -56,6 +56,8 @@ func cmdClick(event: CGEvent) {
     cmd_down?.flags = CGEventFlags(rawValue: (CGEventFlags.maskCommand.rawValue))
     cmd_down?.post(tap: CGEventTapLocation.cgSessionEventTap);
 
+    usleep(200_00)
+
     let mouseDown = CGEvent(mouseEventSource: nil,
                         mouseType: .leftMouseDown,
                         mouseCursorPosition: event.location,
